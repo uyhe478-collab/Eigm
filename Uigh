@@ -1,0 +1,101 @@
+--[[
+      Super Fly V.6 (Ultra Smooth & No Walking Legs)
+      แก้บัคตัวแตกและขาเดินซ้อน 100%
+--]]
+
+local player = game.Players.LocalPlayer
+local character = player.Character or player.CharacterAdded:Wait()
+local root = character:WaitForChild("HumanoidRootPart")
+local humanoid = character:WaitForChild("Humanoid")
+local camera = workspace.CurrentCamera
+local runService = game:GetService("RunService")
+
+local isFlying = false
+local speedLevel = 1
+local speeds = {60, 150, 450}
+
+-- === ฟังก์ชันหยุดแอนิเมชั่นขาเดิน (หัวใจหลักของความเนียน) ===
+local function setRobloxAnims(state)
+    local animate = character:FindFirstChild("Animate")
+    if animate then animate.Disabled = state end
+    if state then
+        -- สั่งให้ Humanoid อยู่ในสถานะลอยตัว เพื่อไม่ให้ขาขยับ
+        humanoid:ChangeState(Enum.HumanoidStateType.Physics)
+    else
+        humanoid:ChangeState(Enum.HumanoidStateType.GettingUp)
+    end
+end
+
+-- === UI Design (ตำแหน่งด้านบนตามคลิปคุณ) ===
+local ScreenGui = Instance.new("ScreenGui", player:WaitForChild("PlayerGui"))
+ScreenGui.Name = "SuperFlyV6"
+ScreenGui.ResetOnSpawn = false
+
+local function makeBtn(txt, pos, color)
+    local b = Instance.new("TextButton", ScreenGui)
+    b.Size = UDim2.new(0, 110, 0, 45)
+    b.Position = pos
+    b.BackgroundColor3 = color
+    b.Text = txt
+    b.TextColor3 = Color3.new(1,1,1)
+    b.Font = Enum.Font.SourceSansBold
+    b.TextSize = 18
+    b.BorderSizePixel = 0
+    local corner = Instance.new("UICorner", b)
+    return b
+end
+
+local ToggleBtn = makeBtn("FLY: OFF", UDim2.new(0.5, -170, 0.05, 0), Color3.fromRGB(200, 0, 0))
+local SpeedBtn = makeBtn("SPEED: 1", UDim2.new(0.5, -55, 0.05, 0), Color3.fromRGB(40, 40, 40))
+local ExitBtn = makeBtn("ปิดสคริปต์", UDim2.new(0.5, 60, 0.05, 0), Color3.fromRGB(80, 0, 0))
+
+-- === ระบบการบิน ===
+ToggleBtn.MouseButton1Click:Connect(function()
+    isFlying = not isFlying
+    if isFlying then
+        ToggleBtn.Text = "FLY: ON"
+        ToggleBtn.BackgroundColor3 = Color3.fromRGB(0, 180, 0)
+        setRobloxAnims(true)
+    else
+        ToggleBtn.Text = "FLY: OFF"
+        ToggleBtn.BackgroundColor3 = Color3.fromRGB(200, 0, 0)
+        setRobloxAnims(false)
+        if root:FindFirstChild("FlyVelocity") then root.FlyVelocity:Destroy() end
+        if root:FindFirstChild("FlyGyro") then root.FlyGyro:Destroy() end
+    end
+end)
+
+SpeedBtn.MouseButton1Click:Connect(function()
+    speedLevel = (speedLevel % 3) + 1
+    SpeedBtn.Text = "SPEED: " .. speedLevel
+end)
+
+ExitBtn.MouseButton1Click:Connect(function() ScreenGui:Destroy() end)
+
+runService.RenderStepped:Connect(function()
+    if not isFlying then return end
+    
+    local bv = root:FindFirstChild("FlyVelocity") or Instance.new("BodyVelocity", root)
+    bv.Name = "FlyVelocity"
+    local bg = root:FindFirstChild("FlyGyro") or Instance.new("BodyGyro", root)
+    bg.Name = "FlyGyro"
+    
+    bv.MaxForce = Vector3.new(1e7, 1e7, 1e7)
+    bg.MaxTorque = Vector3.new(1e7, 1e7, 1e7)
+    bg.P = 15000
+
+    -- คำนวณทิศทางตามกล้อง
+    local moveDir = humanoid.MoveDirection
+    local camCF = camera.CFrame
+    
+    if moveDir.Magnitude > 0 then
+        -- บินตามทิศที่จอยสติ๊กชี้ เทียบกับมุมกล้อง
+        local targetVel = (camCF.RightVector * moveDir.X + camCF.LookVector * -moveDir.Z) * speeds[speedLevel]
+        bv.Velocity = targetVel
+        -- เอียงตัวละครตามความเร็ว (เพื่อให้ดูเหมือนพุ่งจริง)
+        bg.CFrame = CFrame.new(root.Position, root.Position + targetVel) * CFrame.Angles(math.rad(-80), 0, 0)
+    else
+        bv.Velocity = Vector3.new(0, 0.1, 0) -- ลอยตัวนิ่งๆ
+        bg.CFrame = CFrame.new(root.Position, root.Position + camCF.LookVector)
+    end
+end)
