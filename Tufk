@@ -1,0 +1,112 @@
+--[[
+      Invincible Fly V.4 (Fixed Walking Legs + Smooth Flight)
+--]]
+
+local player = game.Players.LocalPlayer
+local character = player.Character or player.CharacterAdded:Wait()
+local root = character:WaitForChild("HumanoidRootPart")
+local humanoid = character:WaitForChild("Humanoid")
+local camera = workspace.CurrentCamera
+local runService = game:GetService("RunService")
+
+local isFlying = false
+local animEnabled = true
+local speedLevel = 1
+local speeds = {60, 150, 400}
+
+-- === Animation System ===
+local flyAnim = Instance.new("Animation")
+flyAnim.AnimationId = "rbxassetid://656118834" -- ท่านินจา
+local track
+
+-- === UI (ย้ายไว้ข้างบนตามเดิม) ===
+local ScreenGui = Instance.new("ScreenGui", player:WaitForChild("PlayerGui"))
+ScreenGui.Name = "InvincibleGuiV4"
+ScreenGui.ResetOnSpawn = false
+
+local ToggleBtn = Instance.new("TextButton", ScreenGui)
+ToggleBtn.Size = UDim2.new(0, 90, 0, 40)
+ToggleBtn.Position = UDim2.new(0.5, -145, 0.05, 0)
+ToggleBtn.BackgroundColor3 = Color3.fromRGB(200, 0, 0)
+ToggleBtn.Text = "FLY: OFF"
+ToggleBtn.TextColor3 = Color3.new(1,1,1)
+ToggleBtn.Font = Enum.Font.SourceSansBold
+ToggleBtn.TextSize = 16
+
+local SpeedBtn = Instance.new("TextButton", ScreenGui)
+SpeedBtn.Size = UDim2.new(0, 90, 0, 40)
+SpeedBtn.Position = UDim2.new(0.5, -45, 0.05, 0)
+SpeedBtn.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+SpeedBtn.Text = "ความเร็ว: 1"
+SpeedBtn.TextColor3 = Color3.new(1,1,1)
+SpeedBtn.Font = Enum.Font.SourceSansBold
+SpeedBtn.TextSize = 16
+
+local AnimBtn = Instance.new("TextButton", ScreenGui)
+AnimBtn.Size = UDim2.new(0, 90, 0, 40)
+AnimBtn.Position = UDim2.new(0.5, 55, 0.05, 0)
+AnimBtn.BackgroundColor3 = Color3.fromRGB(0, 150, 200)
+AnimBtn.Text = "ANIM: ON"
+AnimBtn.TextColor3 = Color3.new(1,1,1)
+AnimBtn.Font = Enum.Font.SourceSansBold
+AnimBtn.TextSize = 16
+
+-- ฟังก์ชันหยุดอนิเมชั่นพื้นฐานของ Roblox (แก้บัคขาเดิน)
+local function setAnims(state)
+    local animate = character:FindFirstChild("Animate")
+    if animate then
+        animate.Disabled = state
+    end
+end
+
+ToggleBtn.MouseButton1Click:Connect(function()
+    isFlying = not isFlying
+    if isFlying then
+        ToggleBtn.Text = "FLY: ON"
+        ToggleBtn.BackgroundColor3 = Color3.fromRGB(0, 180, 0)
+        setAnims(true) -- ปิดท่าเดินปกติ
+        if animEnabled then
+            track = humanoid:LoadAnimation(flyAnim)
+            track:Play()
+        end
+    else
+        ToggleBtn.Text = "FLY: OFF"
+        ToggleBtn.BackgroundColor3 = Color3.fromRGB(200, 0, 0)
+        setAnims(false) -- กลับมาเดินปกติ
+        if track then track:Stop() end
+        if root:FindFirstChild("BodyVelocity") then root.BodyVelocity:Destroy() end
+        if root:FindFirstChild("BodyGyro") then root.BodyGyro:Destroy() end
+    end
+end)
+
+AnimBtn.MouseButton1Click:Connect(function()
+    animEnabled = not animEnabled
+    AnimBtn.Text = animEnabled and "ANIM: ON" or "ANIM: OFF"
+    AnimBtn.BackgroundColor3 = animEnabled and Color3.fromRGB(0, 150, 200) or Color3.fromRGB(100, 100, 100)
+end)
+
+SpeedBtn.MouseButton1Click:Connect(function()
+    speedLevel = (speedLevel % 3) + 1
+    SpeedBtn.Text = "ความเร็ว: " .. speedLevel
+end)
+
+runService.RenderStepped:Connect(function()
+    if not isFlying then return end
+    
+    local bv = root:FindFirstChild("BodyVelocity") or Instance.new("BodyVelocity", root)
+    local bg = root:FindFirstChild("BodyGyro") or Instance.new("BodyGyro", root)
+    bv.MaxForce = Vector3.new(1e6, 1e6, 1e6)
+    bg.MaxTorque = Vector3.new(1e6, 1e6, 1e6)
+    bg.P = 10000
+
+    if humanoid.MoveDirection.Magnitude > 0 then
+        -- บินตามทิศทางกล้อง (รองรับทั้งเดินหน้าและถอยหลัง)
+        local direction = (humanoid.MoveDirection.Z * camera.CFrame.LookVector) + (humanoid.MoveDirection.X * camera.CFrame.RightVector)
+        bv.Velocity = direction.Unit * speeds[speedLevel]
+        if track then track:AdjustSpeed(2) end
+    else
+        bv.Velocity = Vector3.new(0, 0, 0)
+        if track then track:AdjustSpeed(0) end
+    end
+    bg.CFrame = CFrame.new(root.Position, root.Position + camera.CFrame.LookVector)
+end)
