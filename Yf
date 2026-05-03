@@ -1,0 +1,60 @@
+--[[
+      Sentry Builder v.1 (Engineer Style)
+      กดปุ่มเพื่อวางป้อมปืนที่ยิงอัตโนมัติ
+--]]
+
+local player = game.Players.LocalPlayer
+local mouse = player:GetMouse()
+
+-- ฟังก์ชันสร้างกระสุน
+local function shoot(from, to)
+    local bullet = Instance.new("Part", workspace)
+    bullet.Size = Vector3.new(0.2, 0.2, 2)
+    bullet.Color = Color3.new(1, 1, 0)
+    bullet.CanCollide = false
+    bullet.Anchored = true
+    bullet.CFrame = CFrame.new(from, to) * CFrame.new(0, 0, -bullet.Size.Z/2)
+    
+    game:GetService("Debris"):AddItem(bullet, 0.1)
+end
+
+-- ฟังก์ชันสร้างป้อม
+local function buildSentry(pos)
+    local sentry = Instance.new("Model", workspace)
+    sentry.Name = "MySentry"
+    
+    local base = Instance.new("Part", sentry)
+    base.Size = Vector3.new(4, 1, 4)
+    base.Position = pos + Vector3.new(0, 0.5, 0)
+    base.Anchored = true
+    base.BrickColor = BrickColor.new("Dark stone grey")
+
+    local head = Instance.new("Part", sentry)
+    head.Size = Vector3.new(2, 2, 2)
+    head.Position = base.Position + Vector3.new(0, 1.5, 0)
+    head.Anchored = true
+    head.BrickColor = BrickColor.new("Really red")
+
+    -- ระบบ AI ยิงอัตโนมัติ
+    task.spawn(function()
+        while sentry.Parent do
+            wait(0.5) -- ความเร็วในการยิง
+            for _, v in pairs(game.Players:GetPlayers()) do
+                if v ~= player and v.Character and v.Character:FindFirstChild("HumanoidRootPart") then
+                    local dist = (v.Character.HumanoidRootPart.Position - head.Position).Magnitude
+                    if dist < 50 then -- ระยะยิง 50 studs
+                        shoot(head.Position, v.Character.HumanoidRootPart.Position)
+                        -- v.Character.Humanoid:TakeDamage(5) -- (ใช้ได้เฉพาะในเกมที่คุณเป็นเจ้าของ)
+                    end
+                end
+            end
+        end
+    end)
+end
+
+-- กดปุ่ม "E" เพื่อวางป้อม
+mouse.KeyDown:Connect(function(key)
+    if key:lower() == "e" then
+        buildSentry(mouse.Hit.p)
+    end
+end)
