@@ -1,0 +1,93 @@
+--[[
+      Invincible Fly V.5 (Super Ninja Dash + No Walking Legs)
+--]]
+
+local player = game.Players.LocalPlayer
+local character = player.Character or player.CharacterAdded:Wait()
+local root = character:WaitForChild("HumanoidRootPart")
+local humanoid = character:WaitForChild("Humanoid")
+local camera = workspace.CurrentCamera
+local runService = game:GetService("RunService")
+
+local isFlying = false
+local speedLevel = 1
+local speeds = {60, 150, 400}
+
+-- === Animation System (ปรับให้พุ่งจริง) ===
+local flyAnim = Instance.new("Animation")
+flyAnim.AnimationId = "rbxassetid://616163451" -- เปลี่ยนเป็น ID ท่าพุ่งตัวที่สมจริงขึ้น
+local track
+
+local function setAnims(state)
+    local animate = character:FindFirstChild("Animate")
+    if animate then animate.Disabled = state end
+end
+
+-- === UI (ตำแหน่งด้านบนเหมือนเดิม) ===
+local ScreenGui = Instance.new("ScreenGui", player:WaitForChild("PlayerGui"))
+ScreenGui.Name = "InvincibleV5"
+ScreenGui.ResetOnSpawn = false
+
+local function createBtn(name, pos, color)
+    local btn = Instance.new("TextButton", ScreenGui)
+    btn.Size = UDim2.new(0, 100, 0, 45)
+    btn.Position = pos
+    btn.BackgroundColor3 = color
+    btn.Text = name
+    btn.TextColor3 = Color3.new(1,1,1)
+    btn.Font = Enum.Font.SourceSansBold
+    btn.TextSize = 18
+    btn.BorderSizePixel = 2
+    return btn
+end
+
+local ToggleBtn = createBtn("FLY: OFF", UDim2.new(0.5, -155, 0.05, 0), Color3.fromRGB(200, 0, 0))
+local SpeedBtn = createBtn("ความเร็ว: 1", UDim2.new(0.5, -50, 0.05, 0), Color3.fromRGB(40, 40, 40))
+local ExitBtn = createBtn("ปิดสคริปต์", UDim2.new(0.5, 55, 0.05, 0), Color3.fromRGB(80, 0, 0))
+
+ToggleBtn.MouseButton1Click:Connect(function()
+    isFlying = not isFlying
+    if isFlying then
+        ToggleBtn.Text = "FLY: ON"
+        ToggleBtn.BackgroundColor3 = Color3.fromRGB(0, 180, 0)
+        setAnims(true)
+        track = humanoid:LoadAnimation(flyAnim)
+        track:Play()
+    else
+        ToggleBtn.Text = "FLY: OFF"
+        ToggleBtn.BackgroundColor3 = Color3.fromRGB(200, 0, 0)
+        setAnims(false)
+        if track then track:Stop() end
+        if root:FindFirstChild("BodyVelocity") then root.BodyVelocity:Destroy() end
+        if root:FindFirstChild("BodyGyro") then root.BodyGyro:Destroy() end
+    end
+end)
+
+SpeedBtn.MouseButton1Click:Connect(function()
+    speedLevel = (speedLevel % 3) + 1
+    SpeedBtn.Text = "ความเร็ว: " .. speedLevel
+end)
+
+ExitBtn.MouseButton1Click:Connect(function() ScreenGui:Destroy() end)
+
+runService.RenderStepped:Connect(function()
+    if not isFlying then return end
+    
+    local bv = root:FindFirstChild("BodyVelocity") or Instance.new("BodyVelocity", root)
+    local bg = root:FindFirstChild("BodyGyro") or Instance.new("BodyGyro", root)
+    bv.MaxForce = Vector3.new(1e6, 1e6, 1e6)
+    bg.MaxTorque = Vector3.new(1e6, 1e6, 1e6)
+
+    if humanoid.MoveDirection.Magnitude > 0 then
+        local direction = (humanoid.MoveDirection.Z * camera.CFrame.LookVector) + (humanoid.MoveDirection.X * camera.CFrame.RightVector)
+        bv.Velocity = direction.Unit * speeds[speedLevel]
+        
+        -- ทำให้ตัวละครเอียงพุ่งไปข้างหน้า (เหมือนในคลิป TikTok)
+        bg.CFrame = CFrame.new(root.Position, root.Position + direction) * CFrame.Angles(math.rad(-70), 0, 0)
+        if track then track:AdjustSpeed(2) end
+    else
+        bv.Velocity = Vector3.new(0, 0, 0)
+        bg.CFrame = CFrame.new(root.Position, root.Position + camera.CFrame.LookVector)
+        if track then track:AdjustSpeed(0) end
+    end
+end)
